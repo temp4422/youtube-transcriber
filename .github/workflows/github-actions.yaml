@@ -1,0 +1,27 @@
+name: Deploy YouTube Transcriber
+on:
+  push:
+    branches: [main]
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  vps-pull:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy using SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 15m
+          script: |
+            set -eu
+            cd ~/youtube-transcriber
+            test "$(git branch --show-current)" = main
+            git pull --ff-only origin main
+            docker compose up --detach --build --wait --wait-timeout 120

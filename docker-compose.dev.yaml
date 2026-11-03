@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      target: dev
+    restart: "no"
+    volumes:
+      - ./src:/app/src:ro
+      - ./astro.config.mjs:/app/astro.config.mjs:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro

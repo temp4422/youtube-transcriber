@@ -1,0 +1,12 @@
+node_modules
+.git
+dist
+.astro
+.env
+.env.*
+!.env.example
+prototypes
+**/.venv
+**/__pycache__
+docs
+.DS_Store

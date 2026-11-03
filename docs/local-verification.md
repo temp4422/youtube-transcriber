@@ -1,0 +1,27 @@
+# Local implementation and verification — 2026-11-03
+
+The user authorized local implementation and removal of the Python prototype, with no push or deployment. Testing was stopped at the user's request. The application remains available at http://localhost:3000 in the local Docker container.
+
+## Implemented
+
+Astro with scoped CSS and plain TypeScript interactions, a Node POST endpoint, caption-language selection, manual-caption preference, conservative paragraph formatting, exact plain-text Copy, bounded requests, abortable upstream deadlines, in-memory limits, health endpoint, and a non-root Docker image. The Python files, prototype directory, and virtual environment were removed. Historical Python observations remain only as documentation.
+
+Versions: Node 24.22.0, Astro 7.4.5, @astrojs/node 11.1.9, @hallelx/youtube-transcript 0.2.0, TypeScript 6.0.3. npm lockfile is included.
+
+## Checks completed before testing was stopped
+
+- Type checking: zero errors/warnings/hints. Production build passed locally and inside Docker.
+- Docker image built; local container reached healthy status. Production and development Compose configurations validated.
+- Local TypeScript retrieval of NYFGCESmikA manual English captions: 4,773 segments, 289,930 UTF-8 bytes, final caption end 18,940.172 seconds, about 1.55 seconds retrieval.
+- Same video's automatic English captions: 9,126 segments, 289,837 bytes, final end 18,942.16 seconds, about 1.34 seconds retrieval.
+- German video T87ZtZAoiiQ: manual German track, 180 segments, 7,723 bytes, final end 483.05 seconds, about 0.93 seconds retrieval.
+- Browser flow through the running Docker container: URL submission, language prompt, English choice, full podcast result, and Copy succeeded. Result was 290,045 characters in 442 paragraphs; its final closing words were present. Clipboard text exactly matched the displayed textarea value (comparison performed inside the page to avoid tool-output truncation).
+- German retrieval through the container API succeeded: 7,651 formatted characters, 13 paragraphs, no-store response header.
+- API checks: health 200, unsupported method 405, invalid URL/JSON 400, wrong content type 415, oversized body 413.
+- Browser invalid-link feedback worked. Narrow viewport showed no horizontal page overflow. Browser console contained no captured warnings/errors during the observed flow.
+- Focused in-memory checks passed for accepted/rejected URL shapes, repeated spoken words, rolling-caption overlap, long paragraph output, Chinese spacing, rate/concurrency limits, and release behavior.
+- Simulated fetch failures verified blocked/missing/unavailable/network error mappings. A controlled abort verified that the abort signal reaches and cancels the injected fetch operation. These are simulations, not real YouTube failure observations.
+
+## Limits and remaining verification
+
+No VPS access or deployment was attempted, and nothing was pushed. Hosted reliability remains unverified. Broad automated tests were intentionally not added. Clipboard denial, a real 60-second stalled upstream request, every browser/device combination, and long-term rate behavior were not exhaustively tested. The development Compose mode was configuration-validated but not separately started. Testing stopped at the user's request; do not resume it without a new request.

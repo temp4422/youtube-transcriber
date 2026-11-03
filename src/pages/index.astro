@@ -1,0 +1,75 @@
+---
+export const prerender = true;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Turn YouTube captions into readable, copyable text. One video at a time." />
+    <title>YouTube Transcriber</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232d5b48'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='white'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <header class="masthead"><a class="brand" href="/" aria-label="YouTube Transcriber home"><span class="mark" aria-hidden="true">▤</span> TRANSCRIBER</a><span class="header-note">Less watching. More reading.</span></header>
+    <main>
+      <section class="intro" aria-labelledby="title">
+        <p class="eyebrow">FROM VIDEO TO WORDS</p>
+        <h1 id="title">Good conversations.<br /><span>Ready to read.</span></h1>
+        <p class="description">Turn YouTube captions into clean, readable paragraphs.<br class="desktop-break" /> Paste a link, get the words, make them yours.</p>
+      </section>
+      <section class="input-card" aria-label="Transcribe a video">
+        <form id="transcribe-form">
+          <label for="video-url">YouTube video link</label>
+          <div class="input-row">
+            <input id="video-url" name="url" type="url" required maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" spellcheck="false" aria-describedby="input-help" />
+            <button id="transcribe-button" class="primary" type="submit"><span id="button-label">Transcribe</span><span aria-hidden="true">↗</span></button>
+          </div>
+          <p id="input-help" class="help">One video at a time. Existing captions, in their original words.</p>
+          <div id="language-container" hidden>
+            <label for="language">Caption language</label>
+            <select id="language" name="languageCode"><option value="">Choose a language</option></select>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+        </form>
+      </section>
+      <section id="result" class="result-card" aria-labelledby="transcript-title" aria-busy="false">
+        <div class="result-header"><div><h2 id="transcript-title">Your transcript</h2><p id="result-detail">Just the words. Nothing extra.</p></div><button id="copy-button" class="secondary" type="button" disabled><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg><span id="copy-label">Copy text</span></button></div>
+        <div id="empty-state" class="empty-state"><span class="paper-icon" aria-hidden="true">≡</span><p>A little less playback.<br />A little more perspective.</p><span>Your transcript will appear here.</span></div>
+        <textarea id="transcript" readonly aria-label="Transcript text" spellcheck="false" hidden></textarea>
+        <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+      </section>
+      <footer><span>Made for the long conversations.</span><span>No sign-in. No saved history.</span></footer>
+    </main>
+    <script>import '../scripts/transcriber.ts';</script>
+  </body>
+</html>
+<style>
+  :global(*){box-sizing:border-box} :global([hidden]){display:none!important}
+  :global(body){margin:0;background:#f7f8f4;color:#26372e;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  :global(button),:global(input),:global(select),:global(textarea){font:inherit}
+  :global(button){cursor:pointer} :global(button:disabled){cursor:default}
+  :global(:focus-visible){outline:3px solid #527b65;outline-offset:4px}
+  .masthead{max-width:1120px;margin:auto;padding:27px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e1e6dc}
+  .brand{display:flex;gap:10px;align-items:center;color:#2d4838;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:1.7px}
+  .mark{display:grid;place-items:center;width:29px;height:29px;background:#2d5b48;color:white;border-radius:7px;font-size:23px;font-weight:400;letter-spacing:0}
+  .header-note{font-size:12px;color:#6b756a}
+  main{max-width:932px;margin:auto;padding:0 24px 28px}
+  .intro{text-align:center;padding:53px 0 31px}.eyebrow{font-size:10px;font-weight:700;letter-spacing:2.4px;color:#66816d;margin:0 0 19px}
+  h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(36px,5.2vw,52px);line-height:1.12;font-weight:400;letter-spacing:-1.8px;margin:0 0 19px}h1 span{color:#698370}
+  .description{font-size:14px;line-height:1.7;color:#6c766d;margin:0}
+  .input-card,.result-card{background:#fff;border:1px solid #dfe5db;border-radius:14px;box-shadow:0 3px 10px #253b2403}
+  .input-card{padding:25px 27px;margin-bottom:22px}label{display:block;font-size:12px;font-weight:700;margin-bottom:11px;color:#3e5041}
+  .input-row{display:flex;gap:12px}input{min-width:0;flex:1;background:#fafbf8;border:1px solid #dce2d7;border-radius:7px;padding:14px;font-size:13px;color:#26372e}input::placeholder{color:#8b958a}
+  button{border-radius:7px;display:inline-flex;align-items:center;justify-content:center;gap:12px;font-weight:600;font-size:12px;transition:background .15s}
+  .primary{padding:14px 22px;background:#2d5b48;color:#fff;border:1px solid #2d5b48;min-width:145px}.primary:hover{background:#244b3b}.primary:disabled{opacity:.7}.primary span:last-child{font-size:19px;line-height:14px}
+  .help{color:#7a8479;font-size:11px;margin:12px 0 0;line-height:1.5}
+  #language-container{margin-top:20px}select{width:100%;padding:12px;border:1px solid #dce2d7;background:#fafbf8;border-radius:7px;color:#26372e;font-size:13px}
+  .status{padding:12px 14px;margin:17px 0 0;font-size:13px;line-height:1.5;border-radius:6px;background:#f0f4ec;color:#395b44}.status.error{background:#fff1ec;color:#963f2d}
+  .result-header{padding:21px 26px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf0e9;gap:12px}h2{font-size:14px;margin:0 0 6px;font-weight:600}.result-header p{font-size:11px;color:#889084;margin:0}.secondary{padding:9px 12px;background:#fff;border:1px solid #dce2d7;color:#36543e;white-space:nowrap}.secondary:disabled{color:#99a095;background:#fafbf8;border-color:#e6eae1}.secondary:not(:disabled):hover{background:#f0f4ec}
+  .empty-state{min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;color:#71806d}.paper-icon{display:grid;place-items:center;width:42px;height:48px;border:1px solid #d9e1d1;border-radius:5px;background:#f7f9f3;font-size:30px;color:#9bab90;transform:rotate(-5deg)}.empty-state p{font-family:Georgia,serif;font-size:20px;line-height:1.4;margin:18px 0 10px;color:#7e8e77}.empty-state>span:last-child{font-size:11px;color:#949e8d}
+  textarea{display:block;width:100%;min-height:390px;height:55vh;max-height:800px;resize:vertical;padding:26px;border:0;border-radius:0 0 14px 14px;line-height:1.85;font-size:15px;color:#344637;background:#fff;overflow-wrap:anywhere}
+  .copy-status{font-size:12px;color:#52735b;margin:0;padding:0 26px}.copy-status:not(:empty){padding-bottom:16px}footer{display:flex;justify-content:space-between;gap:16px;color:#899181;font-size:10px;padding:20px 2px}
+  @media(max-width:600px){.masthead{padding:20px 22px}.header-note{display:none}main{padding:0 16px 20px}.intro{padding:38px 0 27px}h1{letter-spacing:-1px}.description{font-size:13px}.desktop-break{display:none}.input-card{padding:20px}.input-row{flex-direction:column}input{width:100%;font-size:16px}.primary{width:100%}.result-header{padding:18px}.empty-state{min-height:230px}textarea{padding:20px;font-size:16px}footer{flex-direction:column;text-align:center;gap:8px}}
+  @media(prefers-reduced-motion:reduce){button{transition:none}}
+</style>

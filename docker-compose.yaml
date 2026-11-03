@@ -1,0 +1,11 @@
+name: youtube-transcriber
+services:
+  app:
+    build:
+      context: .
+      target: prod
+    restart: on-failure:10
+    environment:
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
