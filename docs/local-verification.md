@@ -25,3 +25,15 @@ Versions: Node 24.22.0, Astro 7.4.5, @astrojs/node 11.1.9, @hallelx/youtube-tran
 ## Limits and remaining verification
 
 No VPS access or deployment was attempted, and nothing was pushed. Hosted reliability remains unverified. Broad automated tests were intentionally not added. Clipboard denial, a real 60-second stalled upstream request, every browser/device combination, and long-term rate behavior were not exhaustively tested. The development Compose mode was configuration-validated but not separately started. Testing stopped at the user's request; do not resume it without a new request.
+
+## Browser verification after refactoring — 2026-11-04
+
+The user explicitly requested renewed browser testing and real YouTube retrieval. Tested the current production build with Node 24.22.0 at http://127.0.0.1:3000 using the in-app browser.
+
+- Submitted `NYFGCESmikA` with Automatic language selection: English creator-provided captions loaded, producing 290,045 characters in 442 paragraphs. The final closing words were present.
+- Clicked Copy text: success feedback appeared, and clipboard text exactly matched the full textarea value (comparison performed within the page to avoid tool-output truncation).
+- Selected Russian: retrieval completed with Russian creator-provided captions, producing 232,662 characters. Returning to Automatic restored English and left the selector on Automatic.
+- Submitted `T87ZtZAoiiQ`: German creator-provided captions loaded, producing 7,651 characters in 13 paragraphs.
+- No browser warning or error logs were captured during these checks.
+
+These were real network requests through the app, not mocked retrievals. No code changes were needed. This run did not verify VPS deployment, automatic-caption tracks, clipboard-denial handling, or timeout behavior.

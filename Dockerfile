@@ -9,7 +9,7 @@ EXPOSE 3000
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 FROM dev AS build
-RUN npm run check && npm run build
+RUN npm test && npm run check && npm run build
 RUN npm prune --omit=dev
 
 FROM base AS prod

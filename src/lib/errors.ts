@@ -3,7 +3,13 @@ export class AppError extends Error {
   code: string;
   retryable: boolean;
   retryAfterSeconds?: number;
-  constructor(status: number, code: string, message: string, retryable = false, retryAfterSeconds?: number) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    retryable = false,
+    retryAfterSeconds?: number,
+  ) {
     super(message);
     this.status = status;
     this.code = code;

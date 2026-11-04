@@ -3,16 +3,20 @@ const form = document.querySelector<HTMLFormElement>('#transcribe-form')!;
 const input = document.querySelector<HTMLInputElement>('#video-url')!;
 const submit = document.querySelector<HTMLButtonElement>('#transcribe-button')!;
 const buttonLabel = document.querySelector<HTMLElement>('#button-label')!;
-const languageContainer = document.querySelector<HTMLElement>('#language-container')!;
+const languageContainer = document.querySelector<HTMLElement>(
+  '#language-container',
+)!;
 const language = document.querySelector<HTMLSelectElement>('#language')!;
 const status = document.querySelector<HTMLElement>('#status')!;
 const result = document.querySelector<HTMLElement>('#result')!;
 const transcript = document.querySelector<HTMLTextAreaElement>('#transcript')!;
-const empty = document.querySelector<HTMLElement>('#empty-state')!;
 const detail = document.querySelector<HTMLElement>('#result-detail')!;
 const copy = document.querySelector<HTMLButtonElement>('#copy-button')!;
 const copyLabel = document.querySelector<HTMLElement>('#copy-label')!;
 const copyStatus = document.querySelector<HTMLElement>('#copy-status')!;
+const REQUEST_TIMEOUT_MS = 65_000;
+const COPY_FEEDBACK_MS = 2500;
+
 let busy = false;
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
 function announce(message: string, error = false) {
@@ -20,67 +24,100 @@ function announce(message: string, error = false) {
   status.hidden = !message;
   status.classList.toggle('error', error);
 }
-function clearResult() {
-  transcript.value = '';
-  transcript.hidden = true;
-  empty.hidden = false;
-  copy.disabled = true;
+function setBusy(value: boolean) {
+  busy = value;
+  submit.disabled = input.disabled = language.disabled = value;
+  buttonLabel.textContent = value ? 'Working…' : 'Transcribe';
+  result.setAttribute('aria-busy', String(value));
+}
+function resetCopyFeedback() {
   clearTimeout(copyTimer);
   copyLabel.textContent = 'Copy text';
   copyStatus.textContent = '';
-  detail.textContent = 'Just the words. Nothing extra.';
+}
+function clearResult() {
+  transcript.value = '';
+  transcript.hidden = true;
+  result.hidden = true;
+  copy.disabled = true;
+  resetCopyFeedback();
+  detail.textContent = '';
 }
 input.addEventListener('input', () => {
   languageContainer.hidden = true;
-  language.replaceChildren(new Option('Choose a language', ''));
-  language.required = false;
+  language.replaceChildren(new Option('Automatic', ''));
   clearResult();
   announce('');
 });
-form.addEventListener('submit', async event => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (busy) return;
-  busy = true;
+  const requestedLanguage = language.value;
   clearResult();
-  submit.disabled = input.disabled = language.disabled = true;
-  buttonLabel.textContent = 'Working…';
-  result.setAttribute('aria-busy', 'true');
-  announce('Fetching captions… Long conversations are welcome.');
+  setBusy(true);
+  announce('Fetching captions…');
   try {
     const response = await fetch('/api/transcribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: input.value.trim(), ...(!languageContainer.hidden && language.value ? { languageCode: language.value } : {}) }),
-      signal: AbortSignal.timeout(65_000),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: input.value.trim(),
+        ...(requestedLanguage ? { languageCode: requestedLanguage } : {}),
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('The server could not complete the request. Please try again.');
-    const data = await response.json() as TranscriptResponse;
+    if (!response.headers.get('content-type')?.includes('application/json'))
+      throw new Error(
+        'The server could not complete the request. Please try again.',
+      );
+    const data = (await response.json()) as TranscriptResponse;
     if (data.status === 'error') {
-      const wait = data.retryAfterSeconds ? ` Try again in about ${data.retryAfterSeconds} seconds.` : '';
+      const wait = data.retryAfterSeconds
+        ? ` Try again in about ${data.retryAfterSeconds} seconds.`
+        : '';
       announce(data.message + wait, true);
-    } else if (data.status === 'language_required') {
-      language.replaceChildren(new Option('Choose a language', ''));
-      for (const option of data.languages) language.add(new Option(option.label, option.code));
-      languageContainer.hidden = false;
-      language.required = true;
-      announce(data.message ?? 'Choose the caption language for this video.');
-    } else if (data.status === 'success' && typeof data.text === 'string' && data.text.trim()) {
+    } else if (
+      data.status === 'success' &&
+      typeof data.text === 'string' &&
+      data.text.trim()
+    ) {
       transcript.value = data.text;
       transcript.hidden = false;
-      empty.hidden = true;
+      result.hidden = false;
+      language.replaceChildren(
+        new Option('Automatic', ''),
+        ...data.languages.map(
+          (option) => new Option(option.label, option.code),
+        ),
+      );
+      language.value = data.languages.some(
+        (option) => option.code === requestedLanguage,
+      )
+        ? requestedLanguage
+        : '';
+      languageContainer.hidden = data.languages.length < 2;
       copy.disabled = false;
       detail.textContent = `${data.languageCode.toUpperCase()} · ${data.isGenerated ? 'Automatic captions' : 'Creator-provided captions'}`;
       announce('Your transcript is ready.');
-    } else throw new Error('The server returned an unreadable response. Please try again.');
+    } else
+      throw new Error(
+        'The server returned an unreadable response. Please try again.',
+      );
   } catch (error) {
-    announce(error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'Caption retrieval took too long. Please try again.' : error instanceof Error ? error.message : 'Could not connect. Please try again.', true);
+    announce(
+      error instanceof Error &&
+        (error.name === 'TimeoutError' || error.name === 'AbortError')
+        ? 'Caption retrieval took too long. Please try again.'
+        : error instanceof Error
+          ? error.message
+          : 'Could not connect. Please try again.',
+      true,
+    );
   } finally {
-    busy = false;
-    submit.disabled = input.disabled = language.disabled = false;
-    buttonLabel.textContent = 'Transcribe';
-    result.setAttribute('aria-busy', 'false');
-    if (!languageContainer.hidden && !language.value) language.focus();
+    setBusy(false);
   }
 });
+language.addEventListener('change', () => form.requestSubmit());
 copy.addEventListener('click', async () => {
   const text = transcript.value;
   if (!text || busy) return;
@@ -90,11 +127,12 @@ copy.addEventListener('click', async () => {
     copyLabel.textContent = 'Copied';
     copyStatus.textContent = 'Transcript copied to clipboard.';
     clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => { copyLabel.textContent = 'Copy text'; copyStatus.textContent = ''; }, 2500);
+    copyTimer = setTimeout(resetCopyFeedback, COPY_FEEDBACK_MS);
   } catch {
     if (busy || transcript.value !== text) return;
     transcript.focus();
     transcript.select();
-    copyStatus.textContent = 'Clipboard access is unavailable. The text is selected; use your device’s Copy command.';
+    copyStatus.textContent =
+      'Clipboard access is unavailable. The text is selected; use your device’s Copy command.';
   }
 });

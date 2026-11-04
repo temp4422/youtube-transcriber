@@ -1,6 +1,6 @@
 # YouTube Transcriber
 
-A small Astro + TypeScript app that turns existing YouTube captions into readable paragraphs. Paste a video link, select a caption language when prompted, and copy the text. No sign-in, saved history, audio transcription, translation, or paid services.
+A small Astro + TypeScript app that turns existing YouTube captions into readable paragraphs. Paste a video link, get a transcript automatically, and copy the text. No sign-in, saved history, audio transcription, translation, or paid services.
 
 ## Run locally
 
@@ -11,12 +11,13 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. The selected library does not reliably expose original-language metadata, so the app asks you to confirm a language. It prefers creator-provided captions within that language and uses automatic captions when necessary.
+Open http://localhost:3000. The selected library does not reliably expose original-language metadata, so the app defaults to English (including regional variants) when available, otherwise the first available caption language. The selector stays on Automatic unless you manually choose a language. You can switch languages after retrieval or return to Automatic. Unavailable language selections use the same fallback. It prefers creator-provided captions within that language and uses automatic captions when necessary.
 
 To run the production build directly:
 
 ```sh
 npm run check
+npm test
 npm run build
 npm start
 ```
@@ -44,9 +45,20 @@ Production and development use the same service/port; run one mode at a time. Co
 - A 60-second upstream deadline aborts network operations. The browser waits up to 65 seconds.
 - Maximum request body: 4 KiB. Maximum output: 5 MiB. Oversized transcripts return an error rather than being truncated.
 - No transcript caching or persistence. Library errors distinguish missing captions, inaccessible videos, server blocking, and temporary failures.
-- Runtime defaults live in `src/lib/request-limits.ts`, `src/lib/format-transcript.ts`, and the API route.
+- Runtime defaults are named constants in the modules responsible for each limit.
+
+## Code organization
+
+- `src/pages/api/transcribe.ts` coordinates validation, admission limits, retrieval, and formatting, and maps errors to HTTP responses.
+- `src/lib/transcript-request.ts` reads size-limited JSON and validates the video link and optional language before retrieval.
+- `src/lib/captions.ts` owns the YouTube library integration, language selection, caption validation, and upstream error mapping.
+- `src/lib/format-transcript.ts` formats caption segments into paragraphs; `src/lib/request-limits.ts` owns in-memory admission limits.
+- `src/lib/contracts.ts` defines shared data types; `src/lib/errors.ts` defines application errors.
+- `src/pages/index.astro` owns markup and styles; `src/scripts/transcriber.ts` owns browser interactions, loading state, and clipboard feedback.
 
 ## Retrieval diagnostic
+
+`npm test` runs a small offline regression suite with Node's built-in test runner. It covers request validation and body deadlines, language fallback, malformed captions, transcript formatting and Unicode spacing, and request-limit cleanup. Caption retrieval is mocked in these tests; use the app or the probe below to verify real YouTube access. Docker builds run the regression suite before type checking and building.
 
 ```sh
 npm run probe -- NYFGCESmikA en
