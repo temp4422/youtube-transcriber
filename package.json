@@ -12,12 +12,14 @@
     "check": "astro check",
     "build": "astro build",
     "start": "HOST=127.0.0.1 PORT=3000 node dist/server/entry.mjs",
-    "probe": "node scripts/caption-probe.ts"
+    "probe": "node scripts/caption-probe.ts",
+    "probe:backend": "node scripts/backend-probe.ts"
   },
   "dependencies": {
     "@astrojs/node": "11.1.9",
     "@hallelx/youtube-transcript": "0.2.0",
-    "astro": "7.4.5"
+    "astro": "7.4.5",
+    "youtubei.js": "18.3.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",

@@ -79,3 +79,61 @@ The prepared GitHub Actions workflow runs on pushes to `main`, SSHes into the VP
 5. Verify real caption retrieval from the VPS. Local success does not prove VPS reliability. If YouTube consistently blocks it, revisit the decision with the owner; there is no automatic fallback.
 
 No automatic rollback or multiple-replica support is configured. The historical Python prototype has been removed; its prior observations remain in `docs/caption-retrieval-results.md`.
+
+## Contabo backend experiments
+
+YouTube.js (`CAPTION_BACKEND=youtubejs`) is now the default web backend. It uses
+`getInfo()` plus the transcript panel, with a 60-second deadline and no automatic
+fallback. `CAPTION_BACKEND=legacy` restores the previous library. Older scope notes
+above describe the original implementation; this section supersedes the sole-library
+restriction. Both backends may still be blocked by YouTube.
+
+After transferring/pulling this revision into `~/youtube-transcriber` on the VPS:
+
+```sh
+cd ~/youtube-transcriber
+CAPTION_BACKEND=youtubejs docker compose up -d --build --wait app
+```
+
+Test the existing website at https://youtube-transcribe.temp44.top/ . To confirm the
+active backend and run the same retrieval path without the UI:
+
+```sh
+docker compose exec app printenv CAPTION_BACKEND
+docker compose exec app npm run probe:backend -- MyFKybHCdjE
+docker compose exec app npm run probe:backend -- NYFGCESmikA en
+```
+
+The probe reports counts, language, elapsed time and final caption time; it never
+prints transcript text. For a persistent backend selection, set `CAPTION_BACKEND`
+in the server's `.env` file. Backend selection is server configuration, not a public
+request parameter. YouTube.js only offers language choices it can match to source
+caption tracks; otherwise it returns the transcript panel's default with language
+`und` (unknown), rather than inventing a language code.
+
+### Test yt-dlp separately
+
+The optional container is a diagnostic, **not yet a web backend**. It does not change
+the app or install anything on the Ubuntu host. It downloads only the selected
+caption language, prefers manual captions when available, checks for nonempty
+JSON3 text, prints counts, and deletes temporary files on exit. English is the
+default; supply the actual language code for another video.
+
+```sh
+docker compose --profile diagnostics build ytdlp-probe
+docker compose --profile diagnostics run --rm ytdlp-probe MyFKybHCdjE en
+docker compose --profile diagnostics run --rm ytdlp-probe NYFGCESmikA en
+```
+
+Pinned yt-dlp: `2026.10.26`; Node is available for its JavaScript runtime. No account
+cookies, proxy, PO-token provider, audio download, or paid service is configured.
+A failed test is evidence for the next experiment, not proof that adding tokens
+would work. The diagnostics service starts only when explicitly requested.
+
+Rollback the website backend without rebuilding:
+
+```sh
+CAPTION_BACKEND=legacy docker compose up -d --wait app
+```
+
+For local Node diagnostics: `npm run probe:backend -- MyFKybHCdjE`.

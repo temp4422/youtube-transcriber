@@ -10,14 +10,14 @@ import {
 } from '@hallelx/youtube-transcript';
 import type { Segment, Language } from './contracts.ts';
 import { AppError } from './errors.ts';
-type CaptionResult = {
+export type CaptionResult = {
   segments: Segment[];
   languageCode: string;
   isGenerated: boolean;
   languages: Language[];
 };
 
-export async function retrieveCaptions(
+export async function retrieveLegacyCaptions(
   videoId: string,
   languageCode: string | undefined,
   signal: AbortSignal,
@@ -134,4 +134,15 @@ export async function retrieveCaptions(
       );
     throw error;
   }
+}
+
+/** Explicit selection: a failed experiment never silently falls back. */
+export async function retrieveCaptions(videoId: string, languageCode: string | undefined, signal: AbortSignal): Promise<CaptionResult> {
+  const backend = process.env.CAPTION_BACKEND ?? 'youtubejs';
+  if (backend === 'legacy') return retrieveLegacyCaptions(videoId, languageCode, signal);
+  if (backend === 'youtubejs') {
+    const { retrieveYouTubeJsCaptions } = await import('./captions-youtubejs.ts');
+    return retrieveYouTubeJsCaptions(videoId, languageCode, signal);
+  }
+  throw new AppError(500, 'BACKEND_CONFIGURATION', 'The caption backend is not configured correctly.');
 }

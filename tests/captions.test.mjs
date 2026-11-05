@@ -4,6 +4,8 @@ import { YouTubeTranscriptApi } from '@hallelx/youtube-transcript';
 import { retrieveCaptions } from '../src/lib/captions.ts';
 import { POST } from '../src/pages/api/transcribe.ts';
 
+process.env.CAPTION_BACKEND = 'legacy';
+
 const track = (languageCode, isGenerated = false, text = 'Hello world.') => ({
   languageCode,
   isGenerated,
