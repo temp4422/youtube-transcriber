@@ -8,4 +8,4 @@ services:
     environment:
       TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3005}:3000"

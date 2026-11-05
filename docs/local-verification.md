@@ -37,3 +37,15 @@ The user explicitly requested renewed browser testing and real YouTube retrieval
 - No browser warning or error logs were captured during these checks.
 
 These were real network requests through the app, not mocked retrievals. No code changes were needed. This run did not verify VPS deployment, automatic-caption tracks, clipboard-denial handling, or timeout behavior.
+
+## Timeout fix, regression suite, and formatter verification — 2026-11-05
+
+Implemented explicit retryable HTTP 408 (`REQUEST_TIMEOUT`) when the request-body deadline expires, including when a stalled stream already contains valid JSON. Replaced per-token character-array allocation with anchored Unicode boundary checks in the formatter.
+
+- `npm test`: all 16 offline regression tests passed on Node 24.22.0. Tests cover stalled empty/valid-JSON bodies, size limits, chunked UTF-8, input validation, language fallback, malformed captions, upstream aborts, capacity release, concurrency/rate limits, caption overlap, paragraph preservation, and supplementary Unicode spacing.
+- `npm run check`: zero errors, warnings, or hints. Production build passed. Docker build now runs the suite as well; Docker itself was not rebuilt in this verification.
+- Local synthetic benchmark: 5,000 caption segments, three warmups, median of nine runs per version. Formatter time fell from approximately 121 ms to 21 ms, with identical output. This measures formatting only, not end-to-end YouTube latency.
+- Restarted the updated production server and tested real requests in the browser. `NYFGCESmikA` returned English creator-provided captions: 290,045 characters, 442 paragraphs, final closing words present. Copy feedback appeared and clipboard text exactly matched the full transcript.
+- `T87ZtZAoiiQ` returned German creator-provided captions: 7,651 characters, 13 paragraphs. No browser warning/error logs were captured.
+
+The app remains running locally on port 3000. No push or deployment was performed.
