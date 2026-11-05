@@ -12,6 +12,7 @@ const result = document.querySelector<HTMLElement>('#result')!;
 const transcript = document.querySelector<HTMLTextAreaElement>('#transcript')!;
 const detail = document.querySelector<HTMLElement>('#result-detail')!;
 const copy = document.querySelector<HTMLButtonElement>('#copy-button')!;
+const download = document.querySelector<HTMLButtonElement>('#download-button')!;
 const copyLabel = document.querySelector<HTMLElement>('#copy-label')!;
 const copyStatus = document.querySelector<HTMLElement>('#copy-status')!;
 const REQUEST_TIMEOUT_MS = 65_000;
@@ -39,7 +40,7 @@ function clearResult() {
   transcript.value = '';
   transcript.hidden = true;
   result.hidden = true;
-  copy.disabled = true;
+  copy.disabled = download.disabled = true;
   resetCopyFeedback();
   detail.textContent = '';
 }
@@ -96,7 +97,7 @@ form.addEventListener('submit', async (event) => {
         ? requestedLanguage
         : '';
       languageContainer.hidden = data.languages.length < 2;
-      copy.disabled = false;
+      copy.disabled = download.disabled = false;
       detail.textContent = `${data.languageCode.toUpperCase()} · ${data.isGenerated ? 'Automatic captions' : 'Creator-provided captions'}`;
       announce('Your transcript is ready.');
     } else
@@ -118,6 +119,22 @@ form.addEventListener('submit', async (event) => {
   }
 });
 language.addEventListener('change', () => form.requestSubmit());
+download.addEventListener('click', () => {
+  const text = transcript.value;
+  if (!text || busy) return;
+
+  const url = URL.createObjectURL(
+    new Blob([text], { type: 'text/plain;charset=utf-8' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'transcript.txt';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Allow the browser to start consuming the blob before releasing it.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 copy.addEventListener('click', async () => {
   const text = transcript.value;
   if (!text || busy) return;

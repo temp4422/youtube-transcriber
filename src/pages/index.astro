@@ -30,7 +30,10 @@ export const prerender = true;
       <section id="result" aria-labelledby="transcript-title" aria-busy="false" hidden>
         <div class="result-header">
           <div><h2 id="transcript-title">Transcript</h2><p id="result-detail"></p></div>
-          <button id="copy-button" class="secondary" type="button" disabled><span id="copy-label">Copy text</span></button>
+          <div class="result-actions">
+            <button id="copy-button" class="secondary" type="button" disabled><span id="copy-label">Copy text</span></button>
+            <button id="download-button" class="secondary" type="button" disabled>Download .txt</button>
+          </div>
         </div>
         <textarea id="transcript" readonly aria-label="Transcript text" spellcheck="false" hidden></textarea>
         <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
@@ -63,7 +66,8 @@ export const prerender = true;
   .status{font-size:14px;line-height:1.5;margin:16px 0 0;color:#395b44}
   .status.error{color:#963f2d}
   #result{margin-top:28px;background:#fff;border:1px solid #d6ded7;border-radius:10px;overflow:hidden}
-  .result-header{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #e5eae6}
+  .result-header{padding:16px 20px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #e5eae6}
+  .result-actions{display:flex;flex-wrap:wrap;gap:8px}
   h2{font-size:16px;margin:0 0 5px}.result-header p{font-size:12px;color:#617067;margin:0}
   .secondary{background:#fff;border:1px solid #cbd5cd;color:#36543e;white-space:nowrap}.secondary:hover{background:#f0f4ec}
   textarea{display:block;width:100%;min-height:300px;height:55vh;resize:vertical;padding:20px;border:0;line-height:1.8;font-size:15px;color:#26372e;background:white}
