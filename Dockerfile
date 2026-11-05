@@ -32,3 +32,8 @@ ENV PATH="/opt/ytdlp/bin:$PATH"
 COPY --chown=node:node scripts/ytdlp-probe.py /app/scripts/ytdlp-probe.py
 USER node
 ENTRYPOINT ["python3", "/app/scripts/ytdlp-probe.py"]
+
+FROM ytdlp-probe AS ytdlp-pot-probe
+USER root
+RUN /opt/ytdlp/bin/pip install --no-cache-dir 'bgutil-ytdlp-pot-provider==2.0.2'
+USER node

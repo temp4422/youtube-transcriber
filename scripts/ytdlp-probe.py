@@ -1,5 +1,6 @@
 """Download one caption track to a temporary directory; print counts, never text."""
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -19,8 +20,25 @@ with tempfile.TemporaryDirectory() as directory:
             '--extractor-retries', '0', '--js-runtimes', 'node',
             '-o', str(pathlib.Path(directory) / '%(id)s.%(ext)s'),
             '--', 'https://www.youtube.com/watch?v=' + video_id]
+    provider_url = os.environ.get('POT_PROVIDER_URL')
+    if provider_url:
+        client = os.environ.get('YTDLP_CLIENT', 'mweb')
+        if client not in ('mweb', 'web', 'web_safari', 'tv'):
+            sys.exit('YTDLP_CLIENT must be mweb, web, web_safari, or tv')
+        args[1:1] = ['--verbose', '--extractor-args',
+                     'youtubepot-bgutilhttp:base_url=' + provider_url,
+                     '--extractor-args', 'youtube:player_client=' + client + ';fetch_pot=always']
     try:
         result = subprocess.run(args, capture_output=True, text=True, timeout=60)
+        if provider_url:
+            # Only emit fixed labels extracted from logs, never tokens or signed URLs.
+            logs = result.stdout + '\n' + result.stderr
+            requests = re.findall(r'Generating a (gvs|player|subs) PO Token for ([a-z_]+) client via bgutil HTTP server', logs)
+            print(json.dumps({'event': 'pot_diagnostic', 'client': client,
+                              'providerLoaded': 'bgutil:http-2.0.2' in logs,
+                              'tokenRequests': [{'context': context, 'client': name} for context, name in requests],
+                              'tokensRetrieved': [{'context': context, 'client': name} for context, name in re.findall(r'Retrieved a (gvs|player|subs) PO Token for ([a-z_]+) client', logs)],
+                              'providerError': bool(re.search(r'Error reaching (?:GET|POST)|PO Token.*(?:failed|error)|Failed to generate|server is not available', logs, re.I))}))
         if result.returncode:
             message = result.stderr.lower()
             code = 'UPSTREAM_BLOCKED' if 'not a bot' in message or '429' in message else 'RETRIEVAL_FAILED'

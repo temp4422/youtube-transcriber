@@ -10,3 +10,5 @@ prototypes
 **/__pycache__
 docs
 .DS_Store
+
+artifacts

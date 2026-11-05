@@ -137,3 +137,99 @@ CAPTION_BACKEND=legacy docker compose up -d --wait app
 ```
 
 For local Node diagnostics: `npm run probe:backend -- MyFKybHCdjE`.
+
+### Free yt-dlp proof-of-origin experiment
+
+`docker-compose.pot.yaml` is a standalone diagnostic stack with BgUtils provider
+and plugin pinned to `2.0.2`. It does not modify or restart the website. It uses
+only the VPS, with no subscription, proxy, API key, or account cookies. The token
+provider has no published ports. Both containers are limited to one CPU and
+512 MiB each.
+
+After placing this revision on the server:
+
+```sh
+cd ~/youtube-transcriber
+docker compose -f docker-compose.pot.yaml build ytdlp-pot-probe
+docker compose -f docker-compose.pot.yaml up -d --wait pot-provider
+docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe MyFKybHCdjE en
+```
+
+The default is the `mweb` client with `fetch_pot=always`, so the experiment
+requests tokens even when yt-dlp normally considers them optional. To compare
+another client and a control video:
+
+```sh
+YTDLP_CLIENT=web docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe MyFKybHCdjE en
+docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe NYFGCESmikA en
+```
+
+Allowed clients: `mweb`, `web`, `web_safari`, `tv`. This setting affects only the
+diagnostic. The output reports `providerLoaded`, `tokenRequests`,
+`tokensRetrieved`, and `providerError`, followed by the caption result. A loaded
+plugin or generated token alone is not success: require `status: retrieved`
+with nonempty captions and plausible final-caption time. The probe has a
+60-second deadline, removes subtitle files, and does not print tokens or text.
+
+Stop the experiment when finished (does not stop the website):
+
+```sh
+docker compose -f docker-compose.pot.yaml down
+```
+
+Reference: [BgUtils provider documentation](https://github.com/Brainicism/bgutil-ytdlp-pot-provider).
+Tokens do not guarantee passing YouTube's bot checks.
+
+### Signed-out headless Chromium test (same Docker setup locally and on Contabo)
+
+This standalone diagnostic uses Playwright `1.64.1` and the matching official
+Chromium image. It opens the actual YouTube watch page, rejects optional consent
+when presented, expands the description, clicks **Show transcript**, and reads
+the rendered transcript rows. Each run starts
+with a new signed-out context. No imported cookies, account, proxy, paid service,
+or local PC dependency is used. It does not change the web app or expose ports.
+
+Run these same commands locally or after pulling/copying the project to Contabo:
+
+```sh
+cd /path/to/youtube-transcriber
+mkdir -p artifacts/chromium
+docker compose -f docker-compose.chromium.yaml build chromium-probe
+LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose -f docker-compose.chromium.yaml run --rm chromium-probe MyFKybHCdjE
+```
+
+On Contabo the project directory is usually `~/youtube-transcriber`. The UID/GID
+settings let the container write artifacts owned by your current user. A second
+control test:
+
+```sh
+LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose -f docker-compose.chromium.yaml run --rm chromium-probe NYFGCESmikA
+```
+
+Results are saved under `artifacts/chromium/`, with video ID and timestamp:
+
+- `.json`: success/failure, stage, browser version, player status, transcript HTTP
+  status when available, segment count, and last caption start time when available.
+- `.png`: the browser viewport for diagnosing consent, blocking, or changed UI.
+- `.txt`: the retrieved transcript, only on success. This is the default transcript
+  selected by YouTube; the diagnostic does not request translation or select a language.
+
+Exit `0` means nonempty transcript text was retrieved; `1` means failure; `2`
+means invalid input. Check the saved text and final timestamp for completeness,
+particularly if the source is `rendered_transcript_panel`. HTTP 200 or a loaded
+video alone is not success. No retries are automatic. Runs have a 90-second
+browser deadline plus short screenshot/cleanup time. UI changes may require
+updating the selectors; a missing button does not prove captions are absent.
+
+The Linux browser/runtime versions and container settings are shared between
+local and server runs. The network IP and host architecture can still differ,
+so local success does not prove Contabo access. The diagnostic is headless,
+non-root, and limited to 2 CPUs/2 GiB RAM with 512 MiB shared memory. Playwright's
+default Chromium sandbox setting is used; no host browser profile or Docker
+socket is mounted.
+
+Cleanup of the standalone Compose network (artifacts are retained):
+
+```sh
+docker compose -f docker-compose.chromium.yaml down
+```
