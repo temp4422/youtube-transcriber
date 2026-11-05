@@ -1,31 +1,34 @@
-# Signed-out Chromium verification — 2026-11-05
+# Chromium rebuild verification — 2026-11-05
 
-Standalone Docker diagnostic; no changes deployed to Contabo or the web app.
-Playwright 1.64.1, Chromium 156.0.8078.80, official Playwright Noble image pinned
-by version and manifest digest. Each test used a new nonpersistent context with
-no imported cookies or browser profile. Screenshots showed the signed-out UI.
+Local project only. No Contabo changes or deployment were performed.
 
-| Video | Result | Segments | Text bytes | Last segment starts | Elapsed |
-| --- | --- | ---: | ---: | --- | ---: |
-| MyFKybHCdjE | retrieved | 99 | 14,902 | 15:36 | 5.2 s |
-| NYFGCESmikA | retrieved | 2,282 | 289,778 | 5:15:31 | 7.1 s |
+## Implemented
 
-Both local Docker runs returned exit 0. Both player responses reported OK.
-Text was extracted from the actual transcript panel. YouTube's current
-`transcript-segment-view-model` elements differ from the older
-`ytd-transcript-segment-renderer`; the script supports both. Initial runs using
-only the older selector falsely reported failure; screenshots identified that
-the transcript was in fact displayed. The final runs used the updated selector.
+Playwright 1.64.1 with its bundled headless Chromium replaces the transcript
+libraries and yt-dlp/token-provider experiments. Development and production use
+the same Node 24.22.0 Docker base, browser binaries, system dependencies and npm
+lockfile. Each request uses a new signed-out browser context in a shared process.
+The extractor handles both legacy transcript renderers and the modern
+`transcript-segment-view-model` layout observed during this test.
 
-The output is the default transcript selected by YouTube, which may follow its
-language/dubbing defaults. No translation action was requested. Segment counts
-can differ from the underlying caption API because the UI groups text. The last
-start time is a coverage signal, not an independently verified completeness
-claim. DOM virtualization or future UI changes could affect extraction.
+## Results
 
-Artifacts (JSON, screenshot, transcript text) are in the git-ignored
-`artifacts/chromium/` directory. Compose validation, JavaScript syntax check,
-Docker image build, and both real signed-out retrieval tests passed.
+- 16 unit tests passed.
+- Two real-Chromium fixture tests passed inside the production image build.
+- Astro type check and production build passed inside Docker.
+- Both Compose configurations validated.
+- Development Docker target built; corrected startup command returned HTTP 200
+  from `/health`. Duplicate host flags in the previous command were removed.
+- Final production Docker probe for `MyFKybHCdjE`: retrieved 99 rows, 14,902 UTF-8
+  bytes, final row start 936 seconds (15:36), elapsed 5,721 ms. Fresh browser
+  context; no account or imported cookies.
 
-The user will run the same Docker setup on Contabo. Local retrieval does not
-establish server reliability; host networking/IP remains different.
+Earlier live requests intermittently failed to expose the transcript panel.
+A successful local run does not establish server reliability or exact coverage
+through the end of speech. The last timestamp is a row start, not an inferred
+caption duration. Language and generated/manual provenance are unknown, and the
+app reports those as `und` and `null` rather than guessing. The transcript uses
+YouTube's default panel selection, which may follow its locale/dubbing defaults.
+
+Use the commands in README.md to test the same image on Contabo. No proxy,
+account, token service, or paid API is configured.

@@ -98,7 +98,7 @@ form.addEventListener('submit', async (event) => {
         : '';
       languageContainer.hidden = data.languages.length < 2;
       copy.disabled = download.disabled = false;
-      detail.textContent = `${data.languageCode.toUpperCase()} · ${data.isGenerated ? 'Automatic captions' : 'Creator-provided captions'}`;
+      detail.textContent = data.isGenerated === null ? 'YouTube transcript' : `${data.languageCode.toUpperCase()} · ${data.isGenerated ? 'Automatic captions' : 'Creator-provided captions'}`;
       announce('Your transcript is ready.');
     } else
       throw new Error(

@@ -4,7 +4,7 @@ export type TranscriptResponse =
       status: 'success';
       text: string;
       languageCode: string;
-      isGenerated: boolean;
+      isGenerated: boolean | null;
       languages: Language[];
     }
   | {

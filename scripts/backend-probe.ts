@@ -1,7 +1,7 @@
-import { retrieveCaptions } from '../src/lib/captions.ts';
+import { retrieveCaptions, closeCaptionBrowser } from '../src/lib/captions.ts';
 const [videoId, languageCode] = process.argv.slice(2);
 if (!videoId || !/^[\w-]{11}$/.test(videoId)) throw new Error('Usage: npm run probe:backend -- VIDEO_ID [language]');
-const backend = process.env.CAPTION_BACKEND ?? 'youtubejs';
+const backend = 'chromium';
 const started = performance.now();
 try {
   const result = await retrieveCaptions(videoId, languageCode, AbortSignal.timeout(60_000));
@@ -16,3 +16,5 @@ try {
     elapsedMs: Math.round(performance.now() - started) }));
   process.exitCode = 1;
 }
+
+finally { await closeCaptionBrowser(); }

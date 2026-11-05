@@ -1,235 +1,103 @@
-# YouTube Transcriber
+# YouTube Transcriber — headless Chromium
 
-A small Astro + TypeScript app that turns existing YouTube captions into readable paragraphs. Paste a video link, get a transcript automatically, and copy the text. No sign-in, saved history, audio transcription, translation, or paid services.
+An Astro/TypeScript app that opens YouTube in signed-out headless Chromium,
+clicks **Show transcript**, and formats the visible caption rows. Copy or download
+the result as text. No paid services, proxies, account cookies, token providers,
+yt-dlp, or alternate caption libraries.
 
-## Run locally
-
-Use Node **24.22.0** (`nvm use`) and npm:
-
-```sh
-npm ci
-npm run dev
-```
-
-Open http://localhost:3000. The selected library does not reliably expose original-language metadata, so the app defaults to English (including regional variants) when available, otherwise the first available caption language. The selector stays on Automatic unless you manually choose a language. You can switch languages after retrieval or return to Automatic. Unavailable language selections use the same fallback. It prefers creator-provided captions within that language and uses automatic captions when necessary.
-
-To run the production build directly:
+## Docker: production
 
 ```sh
-npm run check
-npm test
-npm run build
-npm start
+docker compose up -d --build --wait
 ```
 
-## Docker
+Open http://localhost:3005. On Contabo, keep the existing reverse proxy and domain;
+the host port remains loopback-only. `PORT` overrides 3005. Nothing in this
+revision changes DNS or the reverse proxy.
 
-```sh
-docker compose up --detach --build --wait
-```
-
-Open http://localhost:3000. The app runs as a non-root user, with port 3000 bound to the host's loopback interface. For local source reload:
+## Docker: development
 
 ```sh
 docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --build
 ```
 
-Production and development use the same service/port; run one mode at a time. Container health: `/health`. Logs: `docker compose logs --tail=100 app`. Stop: `docker compose down`.
+Open the same URL. Source files are mounted read-only for Astro reload. Dev and
+prod share the same Docker base: Node 24.22.0, locked npm dependencies, Playwright
+1.64.1, its matching Chromium build, and browser system libraries. Dev runs Astro;
+prod runs its compiled server. Use only one mode at a time. Run `docker compose
+down` before switching. Dependency changes require rebuilding.
 
-`PORT` sets the published host port; the app always listens on port 3000 inside Docker. `BIND_ADDRESS` defaults to `127.0.0.1`.
+## Signed-out retrieval test
 
-## Behavior and limits
-
-- Existing captions only, preserving words and punctuation with heuristic paragraph breaks.
-- One active request per IP, 10 admitted requests per 10 minutes, and three active retrievals overall. Shared networks share the limit. Limits reset on restart; run one process/container.
-- A 60-second upstream deadline aborts network operations. The browser waits up to 65 seconds.
-- Maximum request body: 4 KiB. Maximum output: 5 MiB. Oversized transcripts return an error rather than being truncated.
-- No transcript caching or persistence. Library errors distinguish missing captions, inaccessible videos, server blocking, and temporary failures.
-- Runtime defaults are named constants in the modules responsible for each limit.
-
-## Code organization
-
-- `src/pages/api/transcribe.ts` coordinates validation, admission limits, retrieval, and formatting, and maps errors to HTTP responses.
-- `src/lib/transcript-request.ts` reads size-limited JSON and validates the video link and optional language before retrieval.
-- `src/lib/captions.ts` owns the YouTube library integration, language selection, caption validation, and upstream error mapping.
-- `src/lib/format-transcript.ts` formats caption segments into paragraphs; `src/lib/request-limits.ts` owns in-memory admission limits.
-- `src/lib/contracts.ts` defines shared data types; `src/lib/errors.ts` defines application errors.
-- `src/pages/index.astro` owns markup and styles; `src/scripts/transcriber.ts` owns browser interactions, loading state, and clipboard feedback.
-
-## Retrieval diagnostic
-
-`npm test` runs a small offline regression suite with Node's built-in test runner. It covers request validation and body deadlines, language fallback, malformed captions, transcript formatting and Unicode spacing, and request-limit cleanup. Caption retrieval is mocked in these tests; use the app or the probe below to verify real YouTube access. Docker builds run the regression suite before type checking and building.
+With the container running:
 
 ```sh
-npm run probe -- NYFGCESmikA en
-npm run probe -- NYFGCESmikA en generated
-npm run probe -- T87ZtZAoiiQ de
+docker compose exec app npm run probe -- MyFKybHCdjE
+docker compose exec app npm run probe -- NYFGCESmikA
 ```
 
-Omit language to list tracks. The diagnostic prints counts, timings, and coverage, not transcript text. It is not an alternate backend. See `docs/local-verification.md` for observed results and limitations.
-
-## Future VPS deployment — not performed
-
-The prepared GitHub Actions workflow runs on pushes to `main`, SSHes into the VPS, pulls into `~/youtube-transcriber`, and rebuilds with Docker Compose. The user will supply the Git remote later. Before deployment:
-
-1. Create/identify the intended GitHub repository and configure `VPS_HOST`, `VPS_USER`, and `VPS_SSH_PRIVATE_KEY` secrets.
-2. Prepare its `main` checkout at `~/youtube-transcriber` with Git pull access, Docker, and Compose `--wait` support.
-3. Put an HTTPS reverse proxy in front of the loopback-only app port. Set its upstream timeout above 60 seconds (e.g. 75 seconds).
-4. If enabling `TRUST_PROXY=true`, the proxy must overwrite `X-Real-IP` with the actual connecting visitor IP, and clients must not be able to bypass the proxy. Leave it false for direct local use. Never pass through an untrusted caller's IP header.
-5. Verify real caption retrieval from the VPS. Local success does not prove VPS reliability. If YouTube consistently blocks it, revisit the decision with the owner; there is no automatic fallback.
-
-No automatic rollback or multiple-replica support is configured. The historical Python prototype has been removed; its prior observations remain in `docs/caption-retrieval-results.md`.
-
-## Contabo backend experiments
-
-YouTube.js (`CAPTION_BACKEND=youtubejs`) is now the default web backend. It uses
-`getInfo()` plus the transcript panel, with a 60-second deadline and no automatic
-fallback. `CAPTION_BACKEND=legacy` restores the previous library. Older scope notes
-above describe the original implementation; this section supersedes the sole-library
-restriction. Both backends may still be blocked by YouTube.
-
-After transferring/pulling this revision into `~/youtube-transcriber` on the VPS:
+Or run a one-off production container without starting the web service:
 
 ```sh
-cd ~/youtube-transcriber
-CAPTION_BACKEND=youtubejs docker compose up -d --build --wait app
+docker compose build app
+docker compose run --rm --no-deps app npm run probe -- MyFKybHCdjE
 ```
 
-Test the existing website at https://youtube-transcribe.temp44.top/ . To confirm the
-active backend and run the same retrieval path without the UI:
+A passing result reports `status: retrieved`, a nonzero segment/byte count, and
+`lastEndSeconds` (the final row's start time; the UI does not provide durations).
+No transcript text, cookies, or session tokens are printed. Failure exits nonzero
+with an error code. Local success does not establish Contabo access: YouTube may
+still block the server's IP or show a different UI.
+
+Useful commands:
 
 ```sh
-docker compose exec app printenv CAPTION_BACKEND
-docker compose exec app npm run probe:backend -- MyFKybHCdjE
-docker compose exec app npm run probe:backend -- NYFGCESmikA en
+docker compose logs --tail=100 app
+docker compose exec app node -e "fetch('http://127.0.0.1:3000/health').then(r=>console.log(r.status))"
+docker compose down
 ```
 
-The probe reports counts, language, elapsed time and final caption time; it never
-prints transcript text. For a persistent backend selection, set `CAPTION_BACKEND`
-in the server's `.env` file. Backend selection is server configuration, not a public
-request parameter. YouTube.js only offers language choices it can match to source
-caption tracks; otherwise it returns the transcript panel's default with language
-`und` (unknown), rather than inventing a language code.
+## Retrieval behavior
 
-### Test yt-dlp separately
+- One shared browser process; every request gets a new isolated browser context
+  with no imported cookies, account, or persistent profile. Contexts close on
+  success, failure, or timeout. Browser crashes allow relaunch on the next call.
+- Uses the default transcript shown by YouTube. Language selection and manual vs
+  automatic caption detection are not inferred: the API returns language `und`,
+  `isGenerated: null`, and no language choices.
+- Existing captions only; this does not transcribe audio. Playback success alone
+  is not a transcript test. Consent is handled by clicking Reject all if shown.
+- A 60-second request deadline, 5 MiB output limit, and existing per-IP admission
+  limits remain. There are at most three active retrievals. Chromium adds memory
+  overhead; Compose sets 2 GiB memory, two CPUs, and 512 MiB shared memory.
+- No transcript persistence or browser debug port. Docker runs as the `node`
+  user with an init process. Playwright's default Chromium sandbox setting is
+  retained; this is a single-purpose YouTube browser, not a general URL browser.
 
-The optional container is a diagnostic, **not yet a web backend**. It does not change
-the app or install anything on the Ubuntu host. It downloads only the selected
-caption language, prefers manual captions when available, checks for nonempty
-JSON3 text, prints counts, and deletes temporary files on exit. English is the
-default; supply the actual language code for another video.
+The UI may change, and YouTube may refuse automated/signed-out access. A missing
+panel is reported separately from an explicit bot block. This implementation is
+an experiment, not a guarantee of reliable hosted retrieval.
+
+## Checks
+
+Docker production builds run offline unit tests, a real Chromium test against
+an intercepted HTML fixture, type checks, and the Astro build. The fixture test
+verifies consent, description expansion, clicking the panel, and extracting
+multi-hour timestamps; it does not establish real YouTube availability.
+
+For host development use Node 24.22.0:
 
 ```sh
-docker compose --profile diagnostics build ytdlp-probe
-docker compose --profile diagnostics run --rm ytdlp-probe MyFKybHCdjE en
-docker compose --profile diagnostics run --rm ytdlp-probe NYFGCESmikA en
+npm ci
+npx playwright install chromium
+npm test
+npm run test:browser
+npm run check
+npm run build
+npm run probe -- MyFKybHCdjE
 ```
 
-Pinned yt-dlp: `2026.10.26`; Node is available for its JavaScript runtime. No account
-cookies, proxy, PO-token provider, audio download, or paid service is configured.
-A failed test is evidence for the next experiment, not proof that adding tokens
-would work. The diagnostics service starts only when explicitly requested.
-
-Rollback the website backend without rebuilding:
-
-```sh
-CAPTION_BACKEND=legacy docker compose up -d --wait app
-```
-
-For local Node diagnostics: `npm run probe:backend -- MyFKybHCdjE`.
-
-### Free yt-dlp proof-of-origin experiment
-
-`docker-compose.pot.yaml` is a standalone diagnostic stack with BgUtils provider
-and plugin pinned to `2.0.2`. It does not modify or restart the website. It uses
-only the VPS, with no subscription, proxy, API key, or account cookies. The token
-provider has no published ports. Both containers are limited to one CPU and
-512 MiB each.
-
-After placing this revision on the server:
-
-```sh
-cd ~/youtube-transcriber
-docker compose -f docker-compose.pot.yaml build ytdlp-pot-probe
-docker compose -f docker-compose.pot.yaml up -d --wait pot-provider
-docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe MyFKybHCdjE en
-```
-
-The default is the `mweb` client with `fetch_pot=always`, so the experiment
-requests tokens even when yt-dlp normally considers them optional. To compare
-another client and a control video:
-
-```sh
-YTDLP_CLIENT=web docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe MyFKybHCdjE en
-docker compose -f docker-compose.pot.yaml run --rm ytdlp-pot-probe NYFGCESmikA en
-```
-
-Allowed clients: `mweb`, `web`, `web_safari`, `tv`. This setting affects only the
-diagnostic. The output reports `providerLoaded`, `tokenRequests`,
-`tokensRetrieved`, and `providerError`, followed by the caption result. A loaded
-plugin or generated token alone is not success: require `status: retrieved`
-with nonempty captions and plausible final-caption time. The probe has a
-60-second deadline, removes subtitle files, and does not print tokens or text.
-
-Stop the experiment when finished (does not stop the website):
-
-```sh
-docker compose -f docker-compose.pot.yaml down
-```
-
-Reference: [BgUtils provider documentation](https://github.com/Brainicism/bgutil-ytdlp-pot-provider).
-Tokens do not guarantee passing YouTube's bot checks.
-
-### Signed-out headless Chromium test (same Docker setup locally and on Contabo)
-
-This standalone diagnostic uses Playwright `1.64.1` and the matching official
-Chromium image. It opens the actual YouTube watch page, rejects optional consent
-when presented, expands the description, clicks **Show transcript**, and reads
-the rendered transcript rows. Each run starts
-with a new signed-out context. No imported cookies, account, proxy, paid service,
-or local PC dependency is used. It does not change the web app or expose ports.
-
-Run these same commands locally or after pulling/copying the project to Contabo:
-
-```sh
-cd /path/to/youtube-transcriber
-mkdir -p artifacts/chromium
-docker compose -f docker-compose.chromium.yaml build chromium-probe
-LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose -f docker-compose.chromium.yaml run --rm chromium-probe MyFKybHCdjE
-```
-
-On Contabo the project directory is usually `~/youtube-transcriber`. The UID/GID
-settings let the container write artifacts owned by your current user. A second
-control test:
-
-```sh
-LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose -f docker-compose.chromium.yaml run --rm chromium-probe NYFGCESmikA
-```
-
-Results are saved under `artifacts/chromium/`, with video ID and timestamp:
-
-- `.json`: success/failure, stage, browser version, player status, transcript HTTP
-  status when available, segment count, and last caption start time when available.
-- `.png`: the browser viewport for diagnosing consent, blocking, or changed UI.
-- `.txt`: the retrieved transcript, only on success. This is the default transcript
-  selected by YouTube; the diagnostic does not request translation or select a language.
-
-Exit `0` means nonempty transcript text was retrieved; `1` means failure; `2`
-means invalid input. Check the saved text and final timestamp for completeness,
-particularly if the source is `rendered_transcript_panel`. HTTP 200 or a loaded
-video alone is not success. No retries are automatic. Runs have a 90-second
-browser deadline plus short screenshot/cleanup time. UI changes may require
-updating the selectors; a missing button does not prove captions are absent.
-
-The Linux browser/runtime versions and container settings are shared between
-local and server runs. The network IP and host architecture can still differ,
-so local success does not prove Contabo access. The diagnostic is headless,
-non-root, and limited to 2 CPUs/2 GiB RAM with 512 MiB shared memory. Playwright's
-default Chromium sandbox setting is used; no host browser profile or Docker
-socket is mounted.
-
-Cleanup of the standalone Compose network (artifacts are retained):
-
-```sh
-docker compose -f docker-compose.chromium.yaml down
-```
+Docker is the recommended environment for parity with Contabo. Historical
+experiments in `docs/` describe older implementations; this README describes the
+current Chromium backend. `TRUST_PROXY=true` is only appropriate behind a proxy
+that overwrites `X-Real-IP` and prevents clients from bypassing it.

@@ -4,18 +4,12 @@ services:
     build:
       context: .
       target: prod
+    init: true
+    shm_size: 512mb
+    mem_limit: 2g
+    cpus: 2
     restart: on-failure:10
     environment:
-      CAPTION_BACKEND: ${CAPTION_BACKEND:-youtubejs}
       TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3005}:3000"
-
-  ytdlp-probe:
-    profiles: [diagnostics]
-    build:
-      context: .
-      target: ytdlp-probe
-    init: true
-    mem_limit: 512m
-    cpus: 1
